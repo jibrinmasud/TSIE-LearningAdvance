@@ -1,16 +1,18 @@
 const express = require("express");
-const enrollementRouter = express.Router();
+const enrollmentRouter = express.Router();
 const enrollmentController = require("../controllers/enrollmentController");
 const authmiddleware = require("../middleware/authmiddleware");
-enrollementRouter
+const authorizeRoles = require("../middleware/rolemiddleware");
+enrollmentRouter
   .use(authmiddleware)
   .route("/")
-  .get(enrollmentController.index)
-  .post(enrollmentController.create);
+  .get(authorizeRoles("student"), enrollmentController.index)
+  .post(authorizeRoles("student"), enrollmentController.create);
 
-enrollementRouter
+enrollmentRouter
   .route("/:id")
-  .get(enrollmentController.show)
-  .patch(enrollmentController.update)
-  .delete(enrollmentController.delete);
-module.exports = enrollementRouter;
+  .get(authorizeRoles("student"), enrollmentController.show)
+  .patch(authorizeRoles("student"), enrollmentController.update)
+  .delete(authorizeRoles("student"), enrollmentController.delete);
+
+module.exports = enrollmentRouter;

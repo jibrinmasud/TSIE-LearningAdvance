@@ -41,19 +41,23 @@ exports.login = async (req, res) => {
     if (!bcrypt.compareSync(req.body.password, user.password)) {
       return res.status(401).json({ message: "Incorrect Email or  password" });
     }
-    const token = jwt.sign({ 
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
-    }, JWTSECRET, { expiresIn: "1h" });
+    const token = jwt.sign(
+      {
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      },
+      JWTSECRET,
+      { expiresIn: "20m" }
+    );
     const userData = {
       _id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
     };
     res.status(200).json({ user: userData, access_token: token });
   } catch (error) {
