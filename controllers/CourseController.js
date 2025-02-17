@@ -1,16 +1,27 @@
 const { ObjectId } = require("mongodb");
 const Course = require("../models/course");
+const validation = require("../models/validation/CourseValidation");
+const User = require("../models/User");
+const authorizeRoles = require("../middleware/rolemiddleware");
+const authmiddleware = require("../middleware/authmiddleware");
 
 exports.index = async (req, res) => {
   const courses = await Course.find();
   res.json(courses);
 };
-exports.create = async (req, res) => {
-  const newCourse = new Course(req.body);
-  const savedCourse = await newCourse.save();
-  res.json(savedCourse);
-};
-
+exports.create = [
+  authmiddleware,
+  authorizeRoles("instructor"),
+  async (req, res) => {
+    const { error, value } = validation.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
+    const course = new Course(req.body);
+    await course.save();
+    res.status(201).json(course);
+  },
+];
 exports.show = async (req, res) => {
   try {
     const courses = await Course.find({ category: req.params.category });
@@ -28,12 +39,9 @@ exports.show = async (req, res) => {
 };
 
 exports.update = async (req, res) => {
-  const updatedCourse = await Course.findByIdAndUpdate(
-    req.params.id,
-    req.body,
-    { new: true }
-  );
-  res.json(updatedCourse);
+  const _id = new ObjectId(req.params.id);
+  await Course.findByIdAndUpdate(_id, req.body);
+  res.json({ data: "Course updated" });
 };
 exports.delete = async (req, res) => {
   const deletedCourse = await Course.findByIdAndDelete(req.params.id);
