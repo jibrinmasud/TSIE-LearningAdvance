@@ -2,6 +2,8 @@ const User = require("../models/User");
 const Course = require("../models/course");
 const Enrollment = require("../models/enrollment");
 const { ObjectId } = require("mongodb");
+const sendEmail = require("../Emails/sendEmail");
+const { courseEnrollmentTemplate } = require("../Emails/emailTemplates");
 
 exports.index = async (req, res) => {
   try {
@@ -47,6 +49,17 @@ exports.create = async (req, res) => {
       student: user._id,
       course: courseId,
     });
+
+    if (existingEnrollment) {
+      return res
+        .status(409)
+        .json({ message: "Already enrolled in this course" });
+    }
+
+    // Send enrollment confirmation email
+
+    const emailContent = courseEnrollmentTemplate(user.name, course.title);
+    await sendEmail(user.email, emailContent.subject, emailContent.text);
 
     if (existingEnrollment) {
       return res.status(400).json({

@@ -2,9 +2,12 @@ const User = require("../models/User");
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const dotenv = require("dotenv");
+const sendEmail = require("../Emails/sendEmail");
+const { welcomeTemplate } = require("../Emails/emailTemplates");
 dotenv.config();
 const JWTSECRET = process.env.JWT_SECRET;
 var jwt = require("jsonwebtoken");
+
 exports.signup = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
@@ -24,6 +27,11 @@ exports.signup = async (req, res) => {
     });
 
     await user.save();
+
+    // Send welcome email
+    const emailContent = welcomeTemplate(name, role);
+    await sendEmail(email, emailContent.subject, emailContent.text);
+
     res.status(201).json({
       message: `User created successfully, UserName:${name}, Email:${email}, Role:${role}`,
     });
@@ -51,15 +59,9 @@ exports.login = async (req, res) => {
         },
       },
       JWTSECRET,
-      { expiresIn: "20m" }
+      { expiresIn: "1h" }
     );
-    const userData = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
-    res.status(200).json({ user: userData, access_token: token });
+    res.json({ token });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
