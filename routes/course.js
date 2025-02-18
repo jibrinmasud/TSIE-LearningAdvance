@@ -4,18 +4,23 @@ const CourseController = require("../controllers/CourseController");
 const authmiddleware = require("../middleware/authmiddleware");
 const validateSchema = require("../middleware/validationmiddleware");
 const authorizeRoles = require("../middleware/rolemiddleware");
+const upload = require("../config/multer");
+
+const courseUpload = upload.fields([
+  { name: "courseImage", maxCount: 1 },
+  { name: "courseVideo", maxCount: 1 },
+]);
 
 courseRouter
   .route("/")
   .get(CourseController.index)
-  //only instructor can create a course
   .post(
-    CourseController.create,
     authmiddleware,
-    validateSchema,
-    authorizeRoles("instructor")
+    authorizeRoles("instructor"),
+    courseUpload,
+    CourseController.create
   );
-//instructor and user can view courses
+
 courseRouter
   .route("/:category")
   .get(
@@ -23,14 +28,19 @@ courseRouter
     authmiddleware,
     authorizeRoles("student", "instructor")
   );
-//only instructor can be able to update and delete a cousre
+
 courseRouter
   .route("/:id")
-  .patch(authmiddleware, authorizeRoles("instructor"), CourseController.update)
-  .delete(
-    CourseController.delete,
+  .patch(
     authmiddleware,
-    authorizeRoles("instructor")
+    authorizeRoles("instructor"),
+    courseUpload,
+    CourseController.update
+  )
+  .delete(
+    authmiddleware,
+    authorizeRoles("instructor"),
+    CourseController.delete
   );
 
 module.exports = courseRouter;

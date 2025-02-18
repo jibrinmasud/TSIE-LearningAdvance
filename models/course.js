@@ -5,7 +5,7 @@ const CourseSchema = new Schema({
     required: true,
   },
   instructor: {
-    type: String,
+    type: Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
@@ -13,7 +13,6 @@ const CourseSchema = new Schema({
     type: Number,
     required: true,
   },
-
   description: {
     type: String,
     required: true,
@@ -26,11 +25,20 @@ const CourseSchema = new Schema({
     type: Number,
     required: false,
   },
+  courseImage: {
+    type: String,
+    required: false,
+  },
+  courseVideo: {
+    type: String,
+    required: false,
+  },
   enrolledStudents: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
   ],
 });
-module.exports = mongoose.model("course", CourseSchema);
+
+module.exports = mongoose.model("Course", CourseSchema);

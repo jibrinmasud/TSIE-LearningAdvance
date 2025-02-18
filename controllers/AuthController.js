@@ -3,7 +3,10 @@ const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const dotenv = require("dotenv");
 const sendEmail = require("../Emails/sendEmail");
-const { welcomeTemplate } = require("../Emails/emailTemplates");
+const {
+  welcomeTemplate,
+  forgetPasswordTemplate,
+} = require("../Emails/emailTemplates");
 dotenv.config();
 const JWTSECRET = process.env.JWT_SECRET;
 var jwt = require("jsonwebtoken");
@@ -35,6 +38,64 @@ exports.signup = async (req, res) => {
     res.status(201).json({
       message: `User created successfully, UserName:${name}, Email:${email}, Role:${role}`,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const decoded = jwt.verify(token, JWTSECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
+    // Hash new password and update user
+    const hashedPassword = bcrypt.hashSync(newPassword, saltRounds);
+    user.password = hashedPassword;
+    await user.save();
+    res
+      .status(200)
+      .json({ message: "Token verified successfully", userId: user._id });
+  } catch (error) {
+    res.status(400).json({ message: "Invalid or expired reset token" });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate password reset token
+    const resetToken = jwt.sign({ userId: user._id }, JWTSECRET, {
+      expiresIn: "1h",
+    });
+
+    // Create reset link
+    const resetLink = `${process.env.PASSWORD_RESETLINK}/reset-password/${resetToken}`;
+
+    // Send password reset email
+    const emailContent = forgetPasswordTemplate(user.name, resetLink);
+    const emailSent = await sendEmail(
+      email,
+      emailContent.subject,
+      emailContent.text
+    );
+
+    if (!emailSent) {
+      return res.status(500).json({ message: "Error sending reset email" });
+    }
+
+    res.status(200).json({ message: "Password reset email sent successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
