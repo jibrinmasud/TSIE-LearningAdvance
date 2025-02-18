@@ -46,6 +46,12 @@ exports.signup = async (req, res) => {
 exports.verifyResetToken = async (req, res) => {
   try {
     const { token } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ message: "New password is required" });
+    }
+
     const decoded = jwt.verify(token, JWTSECRET);
     const user = await User.findById(decoded.userId);
 
@@ -54,13 +60,25 @@ exports.verifyResetToken = async (req, res) => {
         .status(400)
         .json({ message: "Invalid or expired reset token" });
     }
+
     // Hash new password and update user
     const hashedPassword = bcrypt.hashSync(newPassword, saltRounds);
     user.password = hashedPassword;
     await user.save();
-    res
-      .status(200)
-      .json({ message: "Token verified successfully", userId: user._id });
+
+    res.status(200).json({
+      message: "Password has been reset successfully",
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ message: "Invalid or expired reset token" });
+    }
   } catch (error) {
     res.status(400).json({ message: "Invalid or expired reset token" });
   }

@@ -5,6 +5,7 @@ const User = require("../models/User");
 const authorizeRoles = require("../middleware/rolemiddleware");
 const authmiddleware = require("../middleware/authmiddleware");
 const cloudinary = require("../config/cloudinary");
+const Enrollment = require("../models/enrollment");
 
 exports.index = async (req, res) => {
   const courses = await Course.find();
@@ -23,14 +24,14 @@ exports.create = [
 
       // Initialize variables for storing Cloudinary URLs
       let courseImage, courseVideo;
-      
+
       // Validate file sizes (additional check even though multer handles this)
       const maxSize = 1024 * 1024 * 1024; // 1GB
       if (req.files) {
         for (let fileType in req.files) {
           if (req.files[fileType][0].size > maxSize) {
             return res.status(400).json({
-              error: `${fileType} exceeds maximum file size of 1GB`
+              error: `${fileType} exceeds maximum file size of 1GB`,
             });
           }
         }
@@ -65,12 +66,12 @@ exports.create = [
         ...req.body,
         courseImage,
         courseVideo,
-        instructor: req.user._id
+        instructor: req.user._id,
       };
 
       const course = new Course(courseData);
       await course.save();
-      
+
       res.status(201).json({
         success: true,
         message: "Course created successfully",
@@ -82,11 +83,94 @@ exports.create = [
           courseVideo: course.courseVideo,
           price: course.price,
           description: course.description,
-          category: course.category
-        }
+          category: course.category,
+        },
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+];
+
+exports.courseAnalytics = [
+  authmiddleware,
+  authorizeRoles("instructor"),
+  async (req, res) => {
+    try {
+      // Get aggregated course analytics
+      const analytics = await enrollment.aggregate([
+        {
+          $lookup: {
+            from: "courses",
+            localField: "course",
+            foreignField: "_id",
+            as: "courseDetails",
+          },
+        },
+        {
+          $unwind: "$courseDetails",
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "student",
+            foreignField: "_id",
+            as: "studentDetails",
+          },
+        },
+        {
+          $unwind: "$studentDetails",
+        },
+        {
+          $group: {
+            _id: "$course",
+            courseName: { $first: "$courseDetails.title" },
+            totalEnrollments: { $sum: 1 },
+            activeStudents: {
+              $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] },
+            },
+            completedStudents: {
+              $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+            },
+            droppedStudents: {
+              $sum: { $cond: [{ $eq: ["$status", "dropped"] }, 1, 0] },
+            },
+            averageRating: { $avg: "$courseDetails.rating" },
+            students: {
+              $push: {
+                studentId: "$studentDetails._id",
+                name: "$studentDetails.name",
+                email: "$studentDetails.email",
+                status: "$status",
+                enrollmentDate: "$enrollmentDate",
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            courseName: 1,
+            totalEnrollments: 1,
+            activeStudents: 1,
+            completedStudents: 1,
+            droppedStudents: 1,
+            averageRating: { $round: ["$averageRating", 1] },
+            students: 1,
+          },
+        },
+      ]);
+
+      res.status(200).json({
+        success: true,
+        analytics,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching course analytics",
+        error: error.message,
+      });
     }
   },
 ];
@@ -144,4 +228,23 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   const deletedCourse = await Course.findByIdAndDelete(req.params.id);
   res.json(deletedCourse);
+};
+
+exports.courseAnalytics = async (req, res) => {
+  try {
+    const totalcourse = Course.aggregate([
+      {
+        $match: { ratingAverage: { $gte: 4 } },
+      },
+      {
+        $group: {
+          _id: null,
+          totalcourse: { $sum: 1 },
+        },
+      },
+    ]);
+    res.status(200).json({ status: "success", data: totalcourse });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };

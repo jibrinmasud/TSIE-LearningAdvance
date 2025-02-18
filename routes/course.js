@@ -2,7 +2,6 @@ const express = require("express");
 const courseRouter = express.Router();
 const CourseController = require("../controllers/CourseController");
 const authmiddleware = require("../middleware/authmiddleware");
-const validateSchema = require("../middleware/validationmiddleware");
 const authorizeRoles = require("../middleware/rolemiddleware");
 const upload = require("../config/multer");
 
@@ -19,6 +18,13 @@ courseRouter
     authorizeRoles("instructor"),
     courseUpload,
     CourseController.create
+  );
+courseRouter
+  .route("/analytics")
+  .get(
+    CourseController.courseAnalytics,
+    authmiddleware,
+    authorizeRoles("instructor")
   );
 
 courseRouter
